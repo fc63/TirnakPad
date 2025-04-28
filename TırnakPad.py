@@ -55,6 +55,7 @@ class TırnakPad(tk.Tk):
         self.text.bind("<ButtonRelease-2>", self.stop_scroll)
         self.text.bind("<Left>", self.on_left_key)
         self.text.bind("<Right>", self.on_right_key)
+        self.text.bind("<Control-Key-1>", self.insert_region_splitter)
 
         self.quote_pairs = []
 
@@ -398,6 +399,12 @@ class TırnakPad(tk.Tk):
         if start_idx <= len(content):
             region_start = self.index_to_position(start_idx)
             self.regions.append((region_start, "end-1c"))
+           
+    def insert_region_splitter(self, event=None):
+        self.text.insert("insert", "_<>_")
+        self.update_quote_pairs()
+        self.highlight_quotes()
+        return "break"
 
 if __name__ == "__main__":
     app = TırnakPad()
