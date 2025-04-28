@@ -162,6 +162,20 @@ class TırnakPad(tk.Tk):
 
     def confirm_delete(self, event=None):
         cursor = self.text.index("insert")
+        selection = self.text.tag_ranges("sel")
+        if selection:
+            start, end = selection
+            self.update_quote_pairs()
+            for q_start, q_end in self.quote_pairs:
+                if self.text.compare(start, "==", q_start) and self.text.compare(end, "==", f"{q_end} +1c"):
+                    if not messagebox.askyesno("Onay", "Bu tırnak ve içindeki yazıyı silmek istiyor musun?"):
+                        return "break"
+                    else:
+                        self.text.delete(start, end)
+                        self.update_quote_pairs()
+                        self.highlight_quotes()
+                        return "break"
+
         if cursor == "1.0" and event.keysym == "BackSpace":
             return None
         prev_cursor = self.text.index(f"{cursor} -1c")
@@ -171,11 +185,10 @@ class TırnakPad(tk.Tk):
                (event.keysym == "Delete" and self.text.compare(cursor, "==", start)) or \
                (event.keysym == "BackSpace" and self.text.compare(prev_cursor, "==", end)) or \
                (event.keysym == "Delete" and self.text.compare(cursor, "==", end)):
-                if not messagebox.askyesno("Onay", "Bu tırnak ve bağlı tırnağı silmek istiyor musun?"):
+                if not messagebox.askyesno("Onay", "Bu tırnak ve içindeki yazıyı silmek istiyor musun?"):
                     return "break"
                 else:
-                    self.text.delete(start)
-                    self.text.delete(end)
+                    self.text.delete(start, f"{end} +1c")
                     self.update_quote_pairs()
                     self.highlight_quotes()
                     return "break"
