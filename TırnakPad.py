@@ -50,11 +50,9 @@ class TırnakPad(tk.Tk):
         self.text.bind("<Button-1>", self.update_line_numbers)
         self.text.bind("<MouseWheel>", self.update_line_numbers)
         self.text.bind("<Configure>", self.update_line_numbers)
-        self.text.bind("<KeyRelease>", self.update_line_numbers)
         self.text.bind("<Button-1>", self.on_mouse_click)
         self.text.bind("<ButtonRelease-1>", self.on_mouse_release)
         self.text.bind("<ButtonRelease-2>", self.stop_scroll)
-        self.text.bind("<KeyPress>", self.on_key_press)
 
         self.quote_pairs = []
 
@@ -227,9 +225,6 @@ class TırnakPad(tk.Tk):
         
     def stop_scroll(self, event):
         self.text.config(cursor="xterm")
-        
-    def on_key_press(self, event=None):
-        self.update_line_numbers()
 
     def update_title(self):
         filename = self.current_file.split("/")[-1] if self.current_file else "(İsimsiz)"
