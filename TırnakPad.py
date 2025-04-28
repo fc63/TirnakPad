@@ -236,20 +236,14 @@ class TırnakPad(tk.Tk):
     def select_all(self, event=None):
         self.update_quote_pairs()
         cursor = self.text.index("insert")
-        region_index = self.get_current_region_index(cursor)
-        if region_index is None:
-            return "break"
-        region_start, region_end = self.regions[region_index]
 
         for start, end in reversed(self.quote_pairs):
-            if self.text.compare(start, ">=", region_start) and self.text.compare(end, "<=", region_end):
-                if self.text.compare(f"{start} +1c", "<", cursor) and self.text.compare(cursor, "<=", end):
-                    self.text.tag_remove("sel", "1.0", "end")
-                    self.text.tag_add("sel", start, f"{end} +3c")
-                    return "break"
+            if self.text.compare(start, "<=", cursor) and self.text.compare(cursor, "<=", end):
+                self.text.tag_remove("sel", "1.0", "end")
+                self.text.tag_add("sel", f"{start} +3c", end)
+                return "break"
 
-        self.text.tag_remove("sel", "1.0", "end")
-        self.text.tag_add("sel", region_start, region_end)
+        self.text.tag_add("sel", "1.0", "end-1c")
         return "break"
 
     def confirm_delete(self, event=None):
