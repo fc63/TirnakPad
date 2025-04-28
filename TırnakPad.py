@@ -37,6 +37,17 @@ class TırnakPad(tk.Tk):
         self.text.tag_configure("normal_text", foreground="white")
 
         self.create_menu()
+        if len(sys.argv) > 1:
+            file_path = sys.argv[1]
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as file:
+                    content = file.read()
+                    self.text.delete("1.0", "end")
+                    self.text.insert("1.0", content)
+                    self.current_file = file_path
+                    self.saved_text = content
+                    self.update_title()
+                    self.highlight_quotes()
 
     def create_menu(self):
         menubar = tk.Menu(self)
