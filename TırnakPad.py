@@ -18,16 +18,40 @@ class TırnakPad(tk.Tk):
         self.iconbitmap(icon_path)
         self.geometry("800x600")
         self.configure(bg="black")
+        text_frame = tk.Frame(self, bg="black")
+        text_frame.pack(expand=True, fill="both")
+        
+        self.line_numbers = tk.Canvas(text_frame, width=40, bg="black", highlightthickness=0)
+        self.line_numbers.pack(side="left", fill="y")
 
-        self.text = tk.Text(self, wrap="word", bg="black", fg="white", insertbackground="white", undo=True)
+        self.scrollbar = tk.Scrollbar(text_frame)
+        self.scrollbar.pack(side="right", fill="y")
+
+        self.text = tk.Text(
+            text_frame,
+            wrap="word",
+            yscrollcommand=self.scrollbar.set,
+            bg="black",
+            fg="white",
+            insertbackground="white",
+            undo=True
+        )
         self.text.pack(expand=True, fill="both")
-
+        self.scrollbar.config(command=self.text.yview)
+        self.text.pack(expand=True, fill="both")
+        self.text.bind("<Button-2>", self.start_scroll)
+        self.text.bind("<B2-Motion>", self.do_scroll)
         self.text.bind("\"", self.insert_quotes)
         self.text.bind("<Control-a>", self.select_all)
         self.text.bind("<Control-s>", self.ctrl_save)
         self.text.bind("<BackSpace>", self.confirm_delete)
         self.text.bind("<Delete>", self.confirm_delete)
         self.text.bind("<KeyRelease>", self.on_key_release)
+        self.text.bind("<KeyRelease>", self.on_key_release)
+        self.text.bind("<Button-1>", self.update_line_numbers)
+        self.text.bind("<MouseWheel>", self.update_line_numbers)
+        self.text.bind("<Configure>", self.update_line_numbers)
+
 
         self.quote_pairs = []
 
@@ -177,6 +201,15 @@ class TırnakPad(tk.Tk):
     def on_key_release(self, event=None):
         self.highlight_quotes()
         self.update_title()
+        self.update_line_numbers()
+    
+    def start_scroll(self, event):
+        self.scroll_start_y = event.y
+
+    def do_scroll(self, event):
+        delta = self.scroll_start_y - event.y
+        self.text.yview_scroll(int(delta / 2), "units")
+        self.scroll_start_y = event.y
 
     def update_title(self):
         filename = self.current_file.split("/")[-1] if self.current_file else "(İsimsiz)"
@@ -185,6 +218,18 @@ class TırnakPad(tk.Tk):
             self.title(f"TırnakPad ({filename})")
         else:
             self.title(f"TırnakPad ({filename}*)")
+            
+    def update_line_numbers(self, event=None):
+        self.line_numbers.delete("all")
+        i = self.text.index("@0,0")
+        while True:
+            dline = self.text.dlineinfo(i)
+            if dline is None:
+                break
+            y = dline[1]
+            linenum = str(i).split(".")[0]
+            self.line_numbers.create_text(2, y, anchor="nw", text=linenum, fill="gray", font=("Consolas", 10))
+            i = self.text.index(f"{i}+1line")
 
 if __name__ == "__main__":
     app = TırnakPad()
