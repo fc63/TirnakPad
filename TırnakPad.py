@@ -53,6 +53,8 @@ class TırnakPad(tk.Tk):
         self.text.bind("<Button-1>", self.on_mouse_click)
         self.text.bind("<ButtonRelease-1>", self.on_mouse_release)
         self.text.bind("<ButtonRelease-2>", self.stop_scroll)
+        self.text.bind("<Left>", self.on_left_key)
+        self.text.bind("<Right>", self.on_right_key)
 
         self.quote_pairs = []
 
@@ -118,28 +120,83 @@ class TırnakPad(tk.Tk):
             self.save_file()
 
     def insert_quotes(self, event=None):
-        self.text.insert("insert", '"\n\n"')
-        self.text.mark_set("insert", "insert -1 lines")
+        if event.state & 0x0004:
+            self.text.insert("insert", '"/<\n\n>\\"')
+            self.text.mark_set("insert", "insert -1l linestart")
+        else:
+            self.text.insert("insert", '"')
         self.update_quote_pairs()
         self.highlight_quotes()
         return "break"
 
     def update_quote_pairs(self):
         content = self.text.get("1.0", "end-1c")
-        positions = []
+        start_positions = []
+        end_positions = []
+
         idx = 0
-        while idx < len(content):
-            if content[idx] == '"':
-                positions.append(self.index_to_position(idx))
-            idx += 1
+        while idx < len(content) - 2:
+            if content[idx:idx+3] == '"/<':
+                start_positions.append(self.index_to_position(idx))
+                idx += 3
+            elif content[idx:idx+3] == '>\\"':
+                end_positions.append(self.index_to_position(idx))
+                idx += 3
+            else:
+                idx += 1
 
         self.quote_pairs = []
-        temp_positions = positions.copy()
-        while len(temp_positions) >= 2:
-            first = temp_positions.pop(0)
-            last = temp_positions.pop(-1)
-            self.quote_pairs.append((first, last))
+        temp_starts = start_positions.copy()
+        temp_ends = end_positions.copy()
 
+        while temp_starts and temp_ends:
+            start = temp_starts.pop(0)
+            end = temp_ends.pop(-1)
+            self.quote_pairs.append((start, end))
+            
+    def on_left_key(self, event=None):
+        cursor = self.text.index("insert")
+        for start, end in self.quote_pairs:
+            # Eğer cursor >\" bloğunun hemen sağındaysa
+            if self.text.compare(cursor, "==", f"{end} +3c"):
+                self.text.mark_set("insert", end)
+                return "break"
+            # Eğer cursor "/<" bloğunun hemen sağındaysa
+            if self.text.compare(cursor, "==", f"{start} +3c"):
+                self.text.mark_set("insert", start)
+                return "break"
+            # Eğer cursor "/< bloğunun tam içindeyse
+            if self.text.compare(cursor, ">", start) and self.text.compare(cursor, "<", f"{start} +3c"):
+                self.text.mark_set("insert", start)
+                return "break"
+            # Eğer cursor >\" bloğunun tam içindeyse
+            if self.text.compare(cursor, ">", end) and self.text.compare(cursor, "<", f"{end} +3c"):
+                self.text.mark_set("insert", end)
+                return "break"
+        return None
+
+    def on_right_key(self, event=None):
+        cursor = self.text.index("insert")
+
+        for start, end in self.quote_pairs:
+            # Eğer cursor >\" bloğunun hemen solundaysa
+            if self.text.compare(cursor, "==", end):
+                self.text.mark_set("insert", f"{end} +3c")
+                return "break"
+            # Eğer cursor "/< bloğunun hemen solundaysa
+            if self.text.compare(cursor, "==", start):
+                self.text.mark_set("insert", f"{start} +3c")
+                return "break"
+            # Eğer cursor "/< bloğunun tam içindeyse
+            if self.text.compare(cursor, ">", start) and self.text.compare(cursor, "<", f"{start} +3c"):
+                self.text.mark_set("insert", f"{start} +3c")
+                return "break"
+            # Eğer cursor >\" bloğunun tam içindeyse
+            if self.text.compare(cursor, ">", end) and self.text.compare(cursor, "<", f"{end} +3c"):
+                self.text.mark_set("insert", f"{end} +3c")
+                return "break"
+        return None
+        
     def index_to_position(self, index):
         lines = self.text.get("1.0", "end-1c").split("\n")
         total = 0
@@ -153,9 +210,9 @@ class TırnakPad(tk.Tk):
         self.update_quote_pairs()
         cursor = self.text.index("insert")
         for start, end in reversed(self.quote_pairs):
-            if self.text.compare(start, "<=", cursor) and self.text.compare(cursor, "<=", end):
+            if self.text.compare(f"{start} +1c", "<", cursor) and self.text.compare(cursor, "<=", end):
                 self.text.tag_remove("sel", "1.0", "end")
-                self.text.tag_add("sel", start, f"{end} +1c")
+                self.text.tag_add("sel", start, f"{end} +3c")
                 return "break"
         self.text.tag_add("sel", "1.0", "end-1c")
         return "break"
@@ -167,11 +224,11 @@ class TırnakPad(tk.Tk):
             start, end = selection
             self.update_quote_pairs()
             for q_start, q_end in self.quote_pairs:
-                if self.text.compare(start, "==", q_start) and self.text.compare(end, "==", f"{q_end} +1c"):
-                    if not messagebox.askyesno("Onay", "Bu tırnak ve içindeki yazıyı silmek istiyor musun?"):
+                if self.text.compare(start, "==", q_start) and self.text.compare(end, "==", f"{q_end} +3c"):
+                    if not messagebox.askyesno("Onay", "Bu blok ve içeriği silinsin mi?"):
                         return "break"
                     else:
-                        self.text.delete(start, end)
+                        self.text.delete(start, f"{q_end} +3c")
                         self.update_quote_pairs()
                         self.highlight_quotes()
                         return "break"
@@ -181,14 +238,20 @@ class TırnakPad(tk.Tk):
         prev_cursor = self.text.index(f"{cursor} -1c")
         self.update_quote_pairs()
         for start, end in self.quote_pairs:
-            if (event.keysym == "BackSpace" and self.text.compare(prev_cursor, "==", start)) or \
-               (event.keysym == "Delete" and self.text.compare(cursor, "==", start)) or \
-               (event.keysym == "BackSpace" and self.text.compare(prev_cursor, "==", end)) or \
-               (event.keysym == "Delete" and self.text.compare(cursor, "==", end)):
-                if not messagebox.askyesno("Onay", "Bu tırnak ve içindeki yazıyı silmek istiyor musun?"):
+            if (event.keysym == "BackSpace" and (
+                    self.text.compare(prev_cursor, ">=", start) and self.text.compare(prev_cursor, "<", f"{start} +3c")
+                )) or (event.keysym == "Delete" and (
+                    self.text.compare(cursor, ">=", start) and self.text.compare(cursor, "<", f"{start} +3c")
+                )) or (event.keysym == "BackSpace" and (
+                    self.text.compare(prev_cursor, ">=", end) and self.text.compare(prev_cursor, "<", f"{end} +3c")
+                )) or (event.keysym == "Delete" and (
+                    self.text.compare(cursor, ">=", end) and self.text.compare(cursor, "<", f"{end} +3c")
+                )):
+                
+                if not messagebox.askyesno("Onay", "Bu blok ve içeriği silinsin mi?"):
                     return "break"
                 else:
-                    self.text.delete(start, f"{end} +1c")
+                    self.text.delete(start, f"{end} +3c")
                     self.update_quote_pairs()
                     self.highlight_quotes()
                     return "break"
@@ -204,12 +267,12 @@ class TırnakPad(tk.Tk):
         cursor = self.text.index("insert")
         active_found = False
         for start, end in reversed(self.quote_pairs):
-            if self.text.compare(start, "<=", cursor) and self.text.compare(cursor, "<=", end):
-                self.text.tag_add("active_quote", start, f"{start} +1c")
-                self.text.tag_add("active_quote", end, f"{end} +1c")
-                self.text.tag_add("active_text", f"{start} +1c", end)
+            if self.text.compare(start, "<", cursor) and self.text.compare(cursor, "<=", end):
+                self.text.tag_add("active_quote", start, f"{start} +3c")
+                self.text.tag_add("active_quote", end, f"{end} +3c")
+                self.text.tag_add("active_text", f"{start} +3c", end)
                 self.text.tag_add("inactive_text", "1.0", start)
-                self.text.tag_add("inactive_text", f"{end} +1c", "end")
+                self.text.tag_add("inactive_text", f"{end} +3c", "end")
                 active_found = True
                 break
         if not active_found:
