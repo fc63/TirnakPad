@@ -47,11 +47,14 @@ class TırnakPad(tk.Tk):
         self.text.bind("<BackSpace>", self.confirm_delete)
         self.text.bind("<Delete>", self.confirm_delete)
         self.text.bind("<KeyRelease>", self.on_key_release)
-        self.text.bind("<KeyRelease>", self.on_key_release)
         self.text.bind("<Button-1>", self.update_line_numbers)
         self.text.bind("<MouseWheel>", self.update_line_numbers)
         self.text.bind("<Configure>", self.update_line_numbers)
-
+        self.text.bind("<KeyRelease>", self.update_line_numbers)
+        self.text.bind("<Button-1>", self.on_mouse_click)
+        self.text.bind("<ButtonRelease-1>", self.on_mouse_release)
+        self.text.bind("<ButtonRelease-2>", self.stop_scroll)
+        self.text.bind("<KeyPress>", self.on_key_press)
 
         self.quote_pairs = []
 
@@ -73,6 +76,8 @@ class TırnakPad(tk.Tk):
                     self.update_title()
                     self.highlight_quotes()
 
+        self.update_line_numbers()
+
     def create_menu(self):
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -93,6 +98,7 @@ class TırnakPad(tk.Tk):
                 self.saved_text = content
                 self.update_title()
                 self.highlight_quotes()
+                self.update_line_numbers()
 
     def save_file(self):
         if self.current_file:
@@ -202,14 +208,28 @@ class TırnakPad(tk.Tk):
         self.highlight_quotes()
         self.update_title()
         self.update_line_numbers()
+        
+    def on_mouse_click(self, event=None):
+        self.after(1, self.highlight_quotes)
+
+    def on_mouse_release(self, event=None):
+        self.after(1, self.highlight_quotes)
     
     def start_scroll(self, event):
         self.scroll_start_y = event.y
+        self.text.config(cursor="fleur")
 
     def do_scroll(self, event):
-        delta = self.scroll_start_y - event.y
+        delta = event.y - self.scroll_start_y
         self.text.yview_scroll(int(delta / 2), "units")
         self.scroll_start_y = event.y
+        self.update_line_numbers()
+        
+    def stop_scroll(self, event):
+        self.text.config(cursor="xterm")
+        
+    def on_key_press(self, event=None):
+        self.update_line_numbers()
 
     def update_title(self):
         filename = self.current_file.split("/")[-1] if self.current_file else "(İsimsiz)"
