@@ -53,7 +53,6 @@ class TırnakPad(tk.Tk):
         self.text.bind("<ButtonRelease-2>", self.stop_scroll)
         self.text.bind("<Left>", self.on_left_key)
         self.text.bind("<Right>", self.on_right_key)
-        self.text.bind("<Control-Key-1>", self.insert_region_splitter)
 
         self.quote_pairs = []
 
@@ -213,26 +212,19 @@ class TırnakPad(tk.Tk):
                     return "break"
         return None
         
-    def index_to_position(self, index):
-        lines = self.text.get("1.0", "end-1c").split("\n")
-        total = 0
-        for line_number, line in enumerate(lines, start=1):
-            if total + len(line) >= index:
-                return f"{line_number}.{index - total}"
-            total += len(line) + 1
-        return "end"
-        
-    def index_to_position_in_region(self, region_start, relative_idx):
-        line, col = map(int, region_start.split("."))
+    def index_to_position(self, abs_index):
         content = self.text.get("1.0", "end-1c")
-        absolute_idx = self.position_to_absolute_index(region_start) + relative_idx
         lines = content.split("\n")
         total = 0
-        for line_number, line_content in enumerate(lines, start=1):
-            if total + len(line_content) >= absolute_idx:
-                return f"{line_number}.{absolute_idx - total}"
-            total += len(line_content) + 1
+        for line_number, line in enumerate(lines, start=1):
+            if total + len(line) >= abs_index:
+                return f"{line_number}.{abs_index - total}"
+            total += len(line) + 1
         return "end"
+
+    def index_to_position_in_region(self, region_start, relative_idx):
+        abs_idx = self.position_to_absolute_index(region_start) + relative_idx
+        return self.index_to_position(abs_idx)
         
     def position_to_absolute_index(self, index):
         content = self.text.get("1.0", "end-1c")
@@ -393,12 +385,8 @@ class TırnakPad(tk.Tk):
     def update_regions(self):
         content = self.text.get("1.0", "end-1c")
         self.regions = []
-        self.inner_regions = {}
-
-        split_marker = "_<>_"
         quote_start_marker = '"/<'
         quote_end_marker = '>\\"'
-
         abs_idx = 0
         stack = []
         quotes = []
@@ -420,20 +408,6 @@ class TırnakPad(tk.Tk):
             end_index = self.index_to_position(end)
             self.regions.append((start_index, f"{self.index_to_position(end)} +3c"))
 
-            subregions = []
-            quote_content = content[start:end]
-            rel_idx = 0
-            while True:
-                sub_idx = quote_content.find(split_marker, rel_idx)
-                if sub_idx == -1:
-                    break
-                sub_start = self.index_to_position_in_region(start_index, sub_idx)
-                subregions.append(sub_start)
-                rel_idx = sub_idx + len(split_marker)
-
-            self.inner_regions[(start_index, f"{self.index_to_position(end)} +3c")] = subregions
-
-        # Tırnak dışında kalan global bölgeleri bul
         non_quoted = []
         last = 0
         for start, end in quotes:
@@ -447,24 +421,6 @@ class TırnakPad(tk.Tk):
             region_start = self.index_to_position(start)
             region_end = self.index_to_position(end)
             self.regions.append((region_start, region_end))
-
-            rel_idx = 0
-            outer = content[start:end]
-            while True:
-                sub_idx = outer.find(split_marker, rel_idx)
-                if sub_idx == -1:
-                    break
-                sub_start = self.index_to_position_in_region(region_start, sub_idx)
-                subregions = self.inner_regions.get((region_start, region_end), [])
-                subregions.append(sub_start)
-                self.inner_regions[(region_start, region_end)] = subregions
-                rel_idx = sub_idx + len(split_marker)
-
-    def insert_region_splitter(self, event=None):
-        self.text.insert("insert", "_<>_")
-        self.update_quote_pairs()
-        self.highlight_quotes()
-        return "break"
 
 if __name__ == "__main__":
     app = TırnakPad()
